@@ -1,16 +1,14 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import * as express from 'express';
 
 admin.initializeApp();
+const app = express();
 
 // // Start writing Firebase Functions
 // // https://firebase.google.com/docs/functions/typescript
 
-export const helloWorld = functions.https.onRequest((request, response) => {
-  response.send('Hello from Firebase!');
-});
-
-export const getPosts = functions.https.onRequest((request, response) => {
+app.get('/', (request, response) => {
   admin
     .firestore()
     .collection('posts')
@@ -28,12 +26,7 @@ export const getPosts = functions.https.onRequest((request, response) => {
     });
 });
 
-export const createPost = functions.https.onRequest((request, response) => {
-  if (request.method !== 'POST') {
-    return response
-      .status(400)
-      .json({ error: `Method of type ${request.method} not allowed!` });
-  }
+app.post('/post', (request, response) => {
   const post: any = {
     user: request.body.user,
     body: request.body.body,
@@ -51,3 +44,5 @@ export const createPost = functions.https.onRequest((request, response) => {
       console.error(error);
     });
 });
+
+export const api = functions.https.onRequest(app);
