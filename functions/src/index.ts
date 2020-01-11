@@ -12,11 +12,16 @@ app.get('/', (request, response) => {
   admin
     .firestore()
     .collection('posts')
+    .orderBy('timestamp', 'desc')
     .get()
     .then(data => {
       const posts: any[] = [];
       data.docs.forEach(post => {
-        posts.push(post.data());
+        posts.push({
+          ...post.data(),
+          id: post.id,
+          timestamp: post.data().timestamp.toDate()
+        });
       });
       return response.json(posts);
     })
