@@ -21,6 +21,12 @@ const app = express();
 // // Start writing Firebase Functions
 // // https://firebase.google.com/docs/functions/typescript
 
+const timestamp = () => admin.firestore.Timestamp.fromDate(new Date());
+const handleError = response => error => {
+  response.status(500).json(error);
+  console.error(error);
+};
+
 app.get('/', (request, response) => {
   admin
     .firestore()
@@ -38,17 +44,14 @@ app.get('/', (request, response) => {
       });
       return response.json(posts);
     })
-    .catch(error => {
-      response.status(500).json(error);
-      console.error(error);
-    });
+    .catch(handleError(response));
 });
 
 app.post('/post', (request, response) => {
   const post: any = {
     user: request.body.user,
     body: request.body.body,
-    timestamp: admin.firestore.Timestamp.fromDate(new Date())
+    timestamp: timestamp()
   };
   admin
     .firestore()
@@ -57,17 +60,14 @@ app.post('/post', (request, response) => {
     .then(({ id }) =>
       response.json({ message: `Document ${id} created successfully!` })
     )
-    .catch(error => {
-      response.status(500).json(error);
-      console.error(error);
-    });
+    .catch(handleError(response));
 });
 
 app.post('/signup', (request, response) => {
   const user = {
     email: request.body.email,
     password: request.body.password,
-    displayName: request.body.name
+    displayName: request.body.username
   };
 
   admin
@@ -88,12 +88,21 @@ app.post('/signup', (request, response) => {
               .auth()
               .createCustomToken(data.uid)
               .then(token => {
-                response.status(201).json({ token });
+                const credentials = {
+                  uid: data.uid,
+                  email: user.email,
+                  created: timestamp()
+                };
+                admin
+                  .firestore()
+                  .doc(`/users/${user.displayName}`)
+                  .set(credentials)
+                  .then(result => {
+                    response.status(201).json({ token });
+                  })
+                  .catch(handleError(response));
               })
-              .catch(error => {
-                response.status(500).json(error);
-                console.error(error);
-              });
+              .catch(handleError(response));
           })
           .catch(error => {
             if (error.code === 'auth/email-already-exists') {
@@ -105,10 +114,7 @@ app.post('/signup', (request, response) => {
           });
       }
     })
-    .catch(error => {
-      response.status(500).json(error);
-      console.error(error);
-    });
+    .catch(handleError(response));
 });
 
 export const api = functions.https.onRequest(app);
