@@ -1,12 +1,24 @@
 import * as admin from 'firebase-admin';
 import * as firebase from 'firebase';
-import { Request, Response } from 'express';
+import * as path from 'path';
+import * as os from 'os';
+import * as fs from 'fs';
+import BusBoy from 'busboy';
+import { Request as eRequest, Response } from 'express';
 import { validateSignUp, validateLogIn } from '../util/validators';
+import { storageBucket } from '../util/config';
 
+interface Request extends eRequest {
+  user?: any;
+  rawBody?: any;
+}
+
+const imageUrl = (file: string) =>
+  `https://firebasestorage.googleapis.com/v0/b/${storageBucket}/o/${file}?alt=media`;
 const timestamp = () => admin.firestore.Timestamp.fromDate(new Date());
-const handleError = response => error => {
-  response.status(500).json(error);
+const handleError = (response: Response) => error => {
   console.error(error);
+  response.status(500).json(error);
 };
 
 export const signup = (request: Request, response: Response) => {
@@ -55,7 +67,8 @@ export const signup = (request: Request, response: Response) => {
           uid,
           email,
           user: displayName,
-          created: timestamp()
+          created: timestamp(),
+          image: imageUrl('blank-profile-picture.png')
         });
     })
     .then(result => response.status(201).json({ token }))
@@ -86,4 +99,53 @@ export const login = (request: Request, response: Response) => {
     .then(credential => credential.user?.getIdToken())
     .then(token => response.json({ token }))
     .catch(handleError(response));
+};
+
+export const uploadImage = (request: Request, response: Response) => {
+  const busboy = new BusBoy({ headers: request.headers });
+
+  let imageFileName: string;
+  let imageToUpload: { filepath: string; mimetype: any };
+  busboy.on(
+    'file',
+    (fieldname: string, file, filename: string, encoding, mimetype: string) => {
+      if (mimetype !== 'image/jpeg' && mimetype !== 'image/png') {
+        response
+          .status(400)
+          .json({ error: `file type ${mimetype} not allowed` });
+        return;
+      }
+      const splitfilename = filename.split('.');
+      const imageExtension = splitfilename[splitfilename.length - 1];
+      imageFileName = `${Math.round(
+        Math.random() * 10_000_000_000_000
+      )}.${imageExtension}`;
+      const filepath = path.join(os.tmpdir(), imageFileName);
+      imageToUpload = { filepath, mimetype };
+      file.pipe(fs.createWriteStream(filepath));
+    }
+  );
+  busboy.on('finish', () => {
+    admin
+      .storage()
+      .bucket()
+      .upload(imageToUpload.filepath, {
+        resumable: false,
+        metadata: {
+          metadata: {
+            contentType: imageToUpload.mimetype
+          }
+        }
+      })
+      .then(value => {
+        const image = imageUrl(imageFileName);
+        return admin
+          .firestore()
+          .doc(`/users/${request.user.handle}`)
+          .update({ image });
+      })
+      .then(result => response.json({ message: 'image uploaded successfully' }))
+      .catch(handleError(response));
+  });
+  busboy.end(request.rawBody);
 };
