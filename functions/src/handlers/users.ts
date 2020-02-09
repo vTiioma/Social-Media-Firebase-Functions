@@ -5,7 +5,11 @@ import * as os from 'os';
 import * as fs from 'fs';
 import BusBoy from 'busboy';
 import { Request as eRequest, Response } from 'express';
-import { validateSignUp, validateLogIn } from '../util/validators';
+import {
+  validateSignUp,
+  validateLogIn,
+  reduceUserDetails
+} from '../util/validators';
 import { storageBucket } from '../util/config';
 
 interface Request extends eRequest {
@@ -101,6 +105,15 @@ export const login = (request: Request, response: Response) => {
     .catch(handleError(response));
 };
 
+export const addUserDetails = (request: Request, response: Response) => {
+  admin
+    .firestore()
+    .doc(`/users/${request.user.user}`)
+    .update(reduceUserDetails(request.body))
+    .then(result => response.json({ message: 'Details added successfully' }))
+    .catch(error => handleError(error));
+};
+
 export const uploadImage = (request: Request, response: Response) => {
   const busboy = new BusBoy({ headers: request.headers });
 
@@ -141,7 +154,7 @@ export const uploadImage = (request: Request, response: Response) => {
         const image = imageUrl(imageFileName);
         return admin
           .firestore()
-          .doc(`/users/${request.user.handle}`)
+          .doc(`/users/${request.user.user}`)
           .update({ image });
       })
       .then(result => response.json({ message: 'image uploaded successfully' }))

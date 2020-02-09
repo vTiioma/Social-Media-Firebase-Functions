@@ -6,7 +6,7 @@ import * as config from './util/config';
 
 import { default as authenticate } from './util/authenticate';
 import { getAllPosts, createSinglePost } from './handlers/posts';
-import { signup, login, uploadImage } from './handlers/users';
+import { signup, login, uploadImage, addUserDetails } from './handlers/users';
 
 admin.initializeApp();
 firebase.initializeApp(config);
@@ -24,5 +24,6 @@ app.post('/post', authenticate, createSinglePost);
 app.post('/signup', signup);
 app.post('/login', login);
 app.post('/user/image', authenticate, uploadImage);
+app.post('/user', authenticate, addUserDetails);
 
 export const api = functions.https.onRequest(app);

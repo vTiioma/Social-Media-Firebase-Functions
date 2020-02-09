@@ -40,6 +40,12 @@ interface LogInData {
   password: string;
 }
 
+interface UserDetails {
+  bio?: String;
+  website?: String;
+  location?: String;
+}
+
 export const validateLogIn = ({ email, password }: LogInData) => {
   const errors: Partial<LogInData> = {};
 
@@ -53,4 +59,25 @@ export const validateLogIn = ({ email, password }: LogInData) => {
   }
 
   return { errors, isValid: Object.keys(errors).length === 0 };
+};
+
+export const reduceUserDetails = data => {
+  const details: UserDetails = {};
+
+  if (isEmpty(data?.bio?.trim()) === false) {
+    details.bio = data.bio;
+  }
+  const website: string = data?.website?.trim();
+  if (isEmpty(website) === false) {
+    if (website.substring(0, 4) !== 'http') {
+      details.website = `http://${website}`;
+    } else {
+      details.website = website;
+    }
+  }
+  if (isEmpty(data?.location?.trim()) === false) {
+    details.location = data.location;
+  }
+
+  return details;
 };
